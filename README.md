@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/tech4good-logo.png" alt="Tech4Good logo" width="320" style="background:#fff; padding:16px; border-radius:12px;" />
+  <img src="./assets/tech4good-logo-white.png" alt="Tech4Good logo" width="360" />
 </div>
 
 ---
