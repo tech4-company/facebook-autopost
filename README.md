@@ -70,8 +70,8 @@ Kluczowe sekrety:
 | `FACEBOOK_PAGE_ACCESS_TOKEN` | `access_token` z odpowiedzi `GET /me/accounts` | `supabase secrets set` | Autoryzacja `POST /{page-id}/feed` i `POST /{page-id}/photos` |
 | `SUPABASE_URL` | Dashboard Supabase (Project URL) | `supabase secrets set` | URL API projektu używany przez klienta DB w funkcji |
 | `SUPABASE_SERVICE_ROLE_KEY` | Dashboard Supabase (API keys) | `supabase secrets set` | Pełny dostęp serwerowy do tabel (`news_cache`, `content_topics`, itd.) |
-| `GEMINI_API_KEY` | Google AI Studio / Gemini | `supabase secrets set` | Generowanie treści posta (tryb AI) |
-| `REPLICATE_API_TOKEN` | Replicate -> Account -> API tokens | `supabase secrets set` | Generowanie obrazów dla postów obrazkowych |
+| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) | `supabase secrets set` | Generowanie treści posta (tryb AI) |
+| `REPLICATE_API_TOKEN` | [Replicate → Account → API tokens](https://replicate.com/account/api-tokens) | `supabase secrets set` | Generowanie obrazów dla postów obrazkowych |
 
 ### Jak sekret "przechodzi" przez system
 
@@ -91,12 +91,12 @@ Wywołuj ją tylko backend-backend (cron, CI, serwer).
 
 ## 3. Wymagania wstępne
 
-- Konto Supabase + nowy projekt.
-- Supabase CLI.
+- Konto [Supabase](https://supabase.com/dashboard) + nowy projekt.
+- [Supabase CLI](https://supabase.com/docs/guides/cli).
 - Facebook Page, do której masz uprawnienia administracyjne.
-- Meta Developer App (dla tokenów).
-- (Opcjonalnie) klucz Gemini API.
-- (Opcjonalnie) konto Replicate do postów obrazkowych.
+- [Meta Developer App](https://developers.facebook.com/) (dla tokenów).
+- (Opcjonalnie) klucz [Gemini API](https://aistudio.google.com/apikey).
+- (Opcjonalnie) konto [Replicate](https://replicate.com/account/api-tokens) do postów obrazkowych.
 
 ## 4. Facebook: dokładne pozyskanie danych (tokeny i sekrety)
 
@@ -104,26 +104,26 @@ Poniższy proces jest najważniejszy, bo od niego zależy działanie publikacji.
 
 ### 4.1. Przygotuj Meta App
 
-1. Wejdź do Meta for Developers i utwórz aplikację (typ biznesowy).
-2. Powiąż aplikację z odpowiednim Business Managerem (jeśli używacie BM).
+1. Wejdź na [Meta for Developers](https://developers.facebook.com/) i utwórz aplikację (typ biznesowy).
+2. Powiąż aplikację z odpowiednim [Business Managerem](https://business.facebook.com/) (jeśli używacie BM).
 3. Upewnij się, że konto użytkownika ma dostęp do strony (Page) i zadania umożliwiające publikację.
 4. W panelu aplikacji zapisz:
 - `APP_ID`,
-- `APP_SECRET` (zwykle w `Settings -> Basic`).
+- `APP_SECRET` (zwykle w `Settings → Basic`).
 5. Na starcie trzymaj aplikację w trybie developerskim i testuj na stronie testowej.
-6. Gdy wdrażasz produkcję dla szerszego grona kont, przygotuj app review wymaganych uprawnień.
+6. Gdy wdrażasz produkcję dla szerszego grona kont, przygotuj [app review](https://developers.facebook.com/docs/app-review) wymaganych uprawnień.
 
 ### 4.2. Wygeneruj User Access Token (krótkotrwały)
 
-Najprościej przez Graph API Explorer:
+Najprościej przez [Graph API Explorer](https://developers.facebook.com/tools/explorer/):
 - wybierz swoją aplikację,
 - wygeneruj token użytkownika,
 - zaznacz uprawnienia wymagane do publikowania na stronie.
 
-Minimalnie praktyczne scope'y do tego use-case:
-- `pages_manage_posts`
-- `pages_read_engagement`
-- `pages_show_list`
+Minimalnie praktyczne scope'y do tego use-case ([pełna lista uprawnień stron](https://developers.facebook.com/docs/permissions#p)):
+- [`pages_manage_posts`](https://developers.facebook.com/docs/permissions#pages_manage_posts)
+- [`pages_read_engagement`](https://developers.facebook.com/docs/permissions#pages_read_engagement)
+- [`pages_show_list`](https://developers.facebook.com/docs/permissions#pages_show_list)
 
 ### 4.3. Zamień na Long-Lived User Token
 
@@ -142,7 +142,7 @@ curl -G "https://graph.facebook.com/v24.0/oauth/access_token" \
   --data-urlencode "fb_exchange_token=<SHORT_LIVED_USER_TOKEN>"
 ```
 
-W odpowiedzi dostaniesz dłużej ważny token użytkownika.
+W odpowiedzi dostaniesz dłużej ważny token użytkownika ([dokumentacja long-lived tokens](https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived)).
 
 Uwaga praktyczna:
 - `APP_SECRET` to sekret aplikacji Meta, a nie token strony.
@@ -164,6 +164,8 @@ W odpowiedzi szukasz:
 To właśnie `FACEBOOK_PAGE_ACCESS_TOKEN` trafia potem do Supabase Secrets i jest używany przez Edge Function do publikacji.
 
 ### 4.5. Weryfikacja tokenu (zalecane)
+
+Możesz sprawdzić ważność i uprawnienia tokenu w [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/).
 
 Szybki test publikacji (na stronie testowej):
 
