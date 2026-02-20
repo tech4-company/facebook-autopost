@@ -1,0 +1,13 @@
+# Supabase local
+.supabase/
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Node / editor
+node_modules/
+.DS_Store
+.vscode/
+.idea/
