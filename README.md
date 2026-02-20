@@ -4,33 +4,20 @@
 
 # facebook-autopost-supabase
 
-Edge Function `generate-facebook-posts`, która automatycznie pobiera newsy z RSS, generuje treść (opcjonalnie także obraz przez Replicate) i publikuje gotowy post na Facebook Page.
+Narzędzie open-source dla NGO i organizacji społecznych, które chcą automatycznie utrzymywać aktywność na Facebooku — bez potrzeby zatrudniania osoby do social mediów i bez ręcznego przeglądania newsów każdego dnia.
 
-To jest wydzielona, uproszczona wersja modułu `generate-social-posts`:
-- tylko Facebook,
-- bez LinkedIn,
-- z opcjonalnym generowaniem obrazów (Replicate),
-- gotowa do hostowania na darmowym planie Supabase.
+## Jak to działa
 
-## Szybkie linki
+Projektem jest pojedyncza Supabase Edge Function (`generate-facebook-posts`), którą uruchamiasz na harmonogramie (np. co 3 dni). Przy każdym uruchomieniu funkcja samodzielnie:
 
-### Wdrożenie
-- Supabase Dashboard: [https://supabase.com/dashboard](https://supabase.com/dashboard)
-- Instalacja Supabase CLI: [https://supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli)
-- Supabase Edge Functions: [https://supabase.com/docs/guides/functions](https://supabase.com/docs/guides/functions)
-- Supabase Secrets: [https://supabase.com/docs/guides/functions/secrets](https://supabase.com/docs/guides/functions/secrets)
-- Meta for Developers: [https://developers.facebook.com/](https://developers.facebook.com/)
-- Graph API Explorer: [https://developers.facebook.com/tools/explorer/](https://developers.facebook.com/tools/explorer/)
-- Access Token Debugger: [https://developers.facebook.com/tools/debug/accesstoken/](https://developers.facebook.com/tools/debug/accesstoken/)
-- Replicate API Tokens: [https://replicate.com/account/api-tokens](https://replicate.com/account/api-tokens)
+1. **pobiera newsy** ze skonfigurowanych kanałów RSS — możesz podać dowolne źródła branżowe, lokalne portale, albo agregatory tematyczne,
+2. **wybiera najlepszy nieużyty artykuł** pasujący do aktualnego tematu rotacji (granty, wolontariat, events itp.),
+3. **generuje treść posta** — domyślnie przez Gemini AI, a jeśli nie masz klucza Gemini, to przez deterministyczny szablon oparty na danych z RSS,
+4. **opcjonalnie generuje grafikę** do posta przez Replicate (modele Flux/SDXL),
+5. **publikuje post** na Twojej Facebook Page przez Graph API,
+6. **zapisuje historię** każdego posta (treść, status, błędy) w bazie Supabase — masz pełen audyt co i kiedy zostało opublikowane.
 
-### Najważniejsze pliki w repo
-- Funkcja główna: [`supabase/functions/generate-facebook-posts/index.ts`](./supabase/functions/generate-facebook-posts/index.ts)
-- Generator obrazów (Replicate): [`supabase/functions/_shared/image-generator.ts`](./supabase/functions/_shared/image-generator.ts)
-- Klient Facebook Graph API: [`supabase/functions/_shared/facebook.ts`](./supabase/functions/_shared/facebook.ts)
-- Schemat bazy (initial): [`supabase/migrations/202602200001_facebook_autopost_schema.sql`](./supabase/migrations/202602200001_facebook_autopost_schema.sql)
-- Schemat bazy (pola obrazków): [`supabase/migrations/202602200002_social_posts_history_image_fields.sql`](./supabase/migrations/202602200002_social_posts_history_image_fields.sql)
-- Przykład env: [`supabase/.env.local.example`](./supabase/.env.local.example)
+Cały pipeline działa serwerowo. Żadne tokeny ani klucze API nie trafiają do frontendu — wszystko żyje w Supabase Secrets i jest odczytywane wyłącznie w środowisku Edge Function.
 
 ## 1. Co to robi i jak się spina
 
