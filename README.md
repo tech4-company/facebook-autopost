@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="./assets/tech4good-logo-white.png" alt="Tech4Good logo" width="360" />
-</div>
+![Tech4Good](./assets/tech4good-banner.png)
 
 ---
 
