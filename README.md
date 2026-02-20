@@ -19,6 +19,41 @@ Projektem jest pojedyncza Supabase Edge Function (`generate-facebook-posts`), kt
 
 Cały pipeline działa serwerowo. Żadne tokeny ani klucze API nie trafiają do frontendu — wszystko żyje w Supabase Secrets i jest odczytywane wyłącznie w środowisku Edge Function.
 
+---
+
+## Szybki start (TL;DR)
+
+> Chcesz po prostu uruchomić — bez czytania całego README? Poniżej minimalna ścieżka.
+
+```
+1. Utwórz projekt Supabase  →  zapisz PROJECT_REF i SERVICE_ROLE_KEY
+2. Utwórz Meta App          →  wygeneruj FACEBOOK_PAGE_ACCESS_TOKEN i FACEBOOK_PAGE_ID
+3. Sklonuj to repo          →  supabase link --project-ref <PROJECT_REF>
+4. Wgraj schemat bazy       →  supabase db push
+5. Ustaw sekrety            →  supabase secrets set ...  (sekcja 6.3)
+6. Wdróż funkcję            →  supabase functions deploy generate-facebook-posts
+7. Przetestuj               →  curl ... -d '{"dry_run":true}'  (sekcja 7)
+8. Ustaw harmonogram        →  pg_cron  (sekcja 8)
+```
+
+Szczegóły każdego kroku znajdziesz w odpowiedniej sekcji poniżej.
+
+---
+
+## Gdzie znaleźć PROJECT_REF i SERVICE_ROLE_KEY
+
+Te dwie wartości pojawiają się w całym README. Oto gdzie je znaleźć:
+
+| Wartość | Gdzie | Ścieżka w dashboardzie |
+| --- | --- | --- |
+| `PROJECT_REF` | [Supabase Dashboard](https://supabase.com/dashboard) | `Project Settings → General → Reference ID` |
+| `SERVICE_ROLE_KEY` | [Supabase Dashboard](https://supabase.com/dashboard) | `Project Settings → API → service_role (secret)` |
+| `SUPABASE_URL` | [Supabase Dashboard](https://supabase.com/dashboard) | `Project Settings → API → Project URL` |
+
+> **Uwaga:** `SERVICE_ROLE_KEY` ma pełny dostęp do bazy — traktuj go jak hasło. Nie commituj go do repo, nie wklejaj publicznie.
+
+---
+
 ## 1. Co to robi i jak się spina
 
 Pipeline jednego uruchomienia:
@@ -257,6 +292,31 @@ supabase secrets set IMAGE_APPEND_LINK_TO_CAPTION=true
 supabase functions deploy generate-facebook-posts
 ```
 
+### 6.5. Lokalne testowanie przed deployem (opcjonalnie)
+
+Możesz uruchomić funkcję lokalnie zanim wyślesz ją na produkcję. Wymaga to lokalnej instancji Supabase lub podłączenia do zdalnego projektu przez `.env.local`.
+
+```bash
+# skopiuj przykład i uzupełnij wartości
+cp supabase/.env.local.example supabase/.env.local
+
+# uruchom funkcję lokalnie
+supabase functions serve generate-facebook-posts --env-file supabase/.env.local
+```
+
+W drugim terminalu wywołaj dry run:
+
+```bash
+curl -X POST "http://localhost:54321/functions/v1/generate-facebook-posts" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run":true}'
+```
+
+Lokalne uruchomienie nie publikuje niczego na Facebooku (dry run), ale przechodzi cały pipeline i pokazuje logi w czasie rzeczywistym — bardzo przydatne przy debugowaniu.
+
+---
+
 ## 7. Testy end-to-end
 
 ### Dry run
@@ -409,7 +469,25 @@ curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-p
   -d '{"topic_key":"grants","post_mode":"image"}'
 ```
 
-## 10. Troubleshooting
+## 10. Lista kontrolna przed pierwszym uruchomieniem
+
+Przed pierwszym live runem przejdź przez tę listę:
+
+- [ ] Projekt Supabase utworzony, `PROJECT_REF` i `SERVICE_ROLE_KEY` zapisane
+- [ ] `supabase link --project-ref <PROJECT_REF>` wykonany pomyślnie
+- [ ] `supabase db push` wykonany — tabele istnieją w bazie
+- [ ] `supabase secrets set` ustawiony dla wszystkich 4 wymaganych sekretów (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN`)
+- [ ] `supabase secrets list` potwierdza, że sekrety są widoczne
+- [ ] Token Facebooka zweryfikowany przez [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/) — status `valid`, uprawnienia `pages_manage_posts` obecne
+- [ ] `supabase functions deploy generate-facebook-posts` zakończony bez błędów
+- [ ] Dry run (`"dry_run": true`) zwraca `200 OK` i status `dry_run` w odpowiedzi
+- [ ] W tabeli `social_posts_history` pojawił się rekord po dry runie
+- [ ] Live run (`{}`) zwraca `200 OK` i post jest widoczny na Facebook Page
+- [ ] pg_cron skonfigurowany i job widoczny w `cron.job`
+
+---
+
+## 11. Troubleshooting
 
 ### "FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN are required"
 
@@ -440,17 +518,17 @@ Funkcja ma fallback: jeśli obraz się nie wygeneruje, publikuje post linkowy.
 - sprawdź czy w `news_cache` są rekordy z `used = false`,
 - sprawdź czy `content_topics.is_active = true`.
 
-## 11. Runbook operacyjny
+## 12. Runbook operacyjny
 
 1. Co tydzień: kontrola `social_posts_history`.
 2. Co miesiąc: test manualny live run.
 3. Co 1-2 miesiące: weryfikacja ważności tokenu Facebook.
 4. Po każdym incydencie: rotacja `FACEBOOK_PAGE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` i (jeśli używany) `REPLICATE_API_TOKEN`.
 
-## 12. Bezpieczeństwo
+## 13. Bezpieczeństwo
 
 Pełna polityka bezpieczeństwa jest w pliku `SECURITY.md`.
 
-## 13. Licencja
+## 14. Licencja
 
 MIT
