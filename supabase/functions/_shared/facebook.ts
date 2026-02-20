@@ -6,6 +6,7 @@ export interface FacebookPostOptions {
   pageId: string;
   accessToken: string;
   message: string;
+  imageUrl?: string;
   link?: string;
 }
 
@@ -28,7 +29,17 @@ async function assertFacebookResponse(response: Response): Promise<void> {
 }
 
 async function postToFeed(options: FacebookPostOptions): Promise<string> {
-  const { pageId, accessToken, message, link } = options;
+  const { pageId, accessToken, message, imageUrl, link } = options;
+
+  if (imageUrl) {
+    return await postToPhotos({
+      pageId,
+      accessToken,
+      caption: message,
+      imageUrl,
+    });
+  }
+
   const params = new URLSearchParams({
     access_token: accessToken,
     message,
@@ -46,6 +57,31 @@ async function postToFeed(options: FacebookPostOptions): Promise<string> {
 
   const payload = await response.json();
   return payload.id;
+}
+
+interface FacebookPhotoPostOptions {
+  pageId: string;
+  accessToken: string;
+  caption: string;
+  imageUrl: string;
+}
+
+async function postToPhotos(options: FacebookPhotoPostOptions): Promise<string> {
+  const { pageId, accessToken, caption, imageUrl } = options;
+  const params = new URLSearchParams({
+    access_token: accessToken,
+    caption,
+    url: imageUrl,
+  });
+
+  const response = await fetch(`${graphApiBase()}/${pageId}/photos?${params.toString()}`, {
+    method: "POST",
+  });
+
+  await assertFacebookResponse(response);
+
+  const payload = await response.json();
+  return payload.post_id || payload.id;
 }
 
 export async function postToFacebook(options: FacebookPostOptions): Promise<PostResult> {

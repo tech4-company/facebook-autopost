@@ -157,3 +157,22 @@ export async function generateFacebookContent(news: NewsItem, topic: ContentTopi
     return fallbackPost(news, topic);
   }
 }
+
+export function generateImagePrompt(news: NewsItem, topic: ContentTopic): string {
+  const org = organizationContext();
+  const title = news.title.replace(/\s+/g, " ").trim();
+  const description = (news.description || "").replace(/\s+/g, " ").trim();
+
+  const descriptionPart = description ? `Secondary context: ${description}.` : "";
+
+  return [
+    `Organization: ${org.organization_name}.`,
+    `Theme: ${topic.topic_name}.`,
+    `Primary headline idea: ${title}.`,
+    descriptionPart,
+    "Keep text minimal and highly readable.",
+    "Focus on nonprofit/social-impact tone and trustworthy visual language.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}

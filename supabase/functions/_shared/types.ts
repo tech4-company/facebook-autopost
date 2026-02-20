@@ -31,6 +31,9 @@ export interface SocialPostHistory {
   platform: SocialPlatform;
   external_post_id: string | null;
   content: string;
+  image_url: string | null;
+  image_prompt: string | null;
+  has_generated_image: boolean;
   news_reference: string | null;
   status: "pending" | "generating" | "posted" | "failed";
   error_message: string | null;
@@ -61,3 +64,5 @@ export interface PostResult {
   postId?: string;
   error?: string;
 }
+
+export type PostMode = "auto" | "link" | "image";

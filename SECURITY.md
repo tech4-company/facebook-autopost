@@ -32,6 +32,7 @@ Najważniejsze sekrety:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `FACEBOOK_PAGE_ACCESS_TOKEN`
 - `GEMINI_API_KEY` (jeśli używane)
+- `REPLICATE_API_TOKEN` (jeśli używane posty obrazkowe)
 
 Założenia:
 - sekrety są trzymane wyłącznie w Supabase Secrets,
@@ -44,7 +45,7 @@ Założenia:
 1. Nie commituj `.env` ani tokenów do repo.
 2. Wywołuj Edge Function wyłącznie server-to-server.
 3. Ogranicz dostęp do `SERVICE_ROLE_KEY` do minimum.
-4. Rotuj token Facebook i service role key regularnie.
+4. Rotuj token Facebook, service role key i (jeśli używany) token Replicate regularnie.
 5. Używaj dedykowanej Facebook Page do testów i stagingu.
 6. Monitoruj `social_posts_history` pod kątem statusów `failed` i anomalii.
 7. Rozważ trzymanie klucza do cron joba w Vault zamiast jawnie w SQL.
@@ -53,7 +54,7 @@ Założenia:
 
 W przypadku wycieku klucza/tokenu:
 
-1. Natychmiast unieważnij/odnów wycieknięty sekret.
+1. Natychmiast unieważnij/odnów wycieknięty sekret (`SUPABASE_SERVICE_ROLE_KEY`, `FACEBOOK_PAGE_ACCESS_TOKEN`, `REPLICATE_API_TOKEN` - jeśli używany).
 2. Zaktualizuj Supabase Secrets nową wartością.
 3. Wykonaj ponowny deploy funkcji.
 4. Sprawdź logi i historię postów pod kątem nadużyć.

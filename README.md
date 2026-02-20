@@ -4,13 +4,33 @@
 
 # facebook-autopost-supabase
 
-Samodzielny projekt Supabase do automatycznego publikowania postów na Facebooku na podstawie kanałów RSS.
+Edge Function `generate-facebook-posts`, która automatycznie pobiera newsy z RSS, generuje treść (opcjonalnie także obraz przez Replicate) i publikuje gotowy post na Facebook Page.
 
 To jest wydzielona, uproszczona wersja modułu `generate-social-posts`:
 - tylko Facebook,
 - bez LinkedIn,
-- bez generatora obrazów,
+- z opcjonalnym generowaniem obrazów (Replicate),
 - gotowa do hostowania na darmowym planie Supabase.
+
+## Szybkie linki
+
+### Wdrożenie
+- Supabase Dashboard: [https://supabase.com/dashboard](https://supabase.com/dashboard)
+- Instalacja Supabase CLI: [https://supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli)
+- Supabase Edge Functions: [https://supabase.com/docs/guides/functions](https://supabase.com/docs/guides/functions)
+- Supabase Secrets: [https://supabase.com/docs/guides/functions/secrets](https://supabase.com/docs/guides/functions/secrets)
+- Meta for Developers: [https://developers.facebook.com/](https://developers.facebook.com/)
+- Graph API Explorer: [https://developers.facebook.com/tools/explorer/](https://developers.facebook.com/tools/explorer/)
+- Access Token Debugger: [https://developers.facebook.com/tools/debug/accesstoken/](https://developers.facebook.com/tools/debug/accesstoken/)
+- Replicate API Tokens: [https://replicate.com/account/api-tokens](https://replicate.com/account/api-tokens)
+
+### Najważniejsze pliki w repo
+- Funkcja główna: [`supabase/functions/generate-facebook-posts/index.ts`](./supabase/functions/generate-facebook-posts/index.ts)
+- Generator obrazów (Replicate): [`supabase/functions/_shared/image-generator.ts`](./supabase/functions/_shared/image-generator.ts)
+- Klient Facebook Graph API: [`supabase/functions/_shared/facebook.ts`](./supabase/functions/_shared/facebook.ts)
+- Schemat bazy (initial): [`supabase/migrations/202602200001_facebook_autopost_schema.sql`](./supabase/migrations/202602200001_facebook_autopost_schema.sql)
+- Schemat bazy (pola obrazków): [`supabase/migrations/202602200002_social_posts_history_image_fields.sql`](./supabase/migrations/202602200002_social_posts_history_image_fields.sql)
+- Przykład env: [`supabase/.env.local.example`](./supabase/.env.local.example)
 
 ## 1. Co to robi i jak się spina
 
@@ -22,9 +42,10 @@ Pipeline jednego uruchomienia:
 4. Generuje treść posta:
 - tryb AI (Gemini), jeśli jest `GEMINI_API_KEY`,
 - tryb fallback (deterministyczny szablon), jeśli brak Gemini.
-5. Publikuje post na Facebook Page przez Graph API (`/{page-id}/feed`).
-6. Zapisuje wynik i status do `social_posts_history`.
-7. Oznacza news/topic jako użyte (żeby ograniczyć duplikaty).
+5. Opcjonalnie generuje obraz przez Replicate (tryb `image` lub `auto`).
+6. Publikuje post na Facebook Page przez Graph API (`/{page-id}/feed` lub `/{page-id}/photos`).
+7. Zapisuje wynik i status do `social_posts_history`.
+8. Oznacza news/topic jako użyte (żeby ograniczyć duplikaty).
 
 ```mermaid
 flowchart TD
@@ -34,8 +55,10 @@ flowchart TD
   D --> E["Tabela news_cache"]
   B --> F["Tabela content_topics"]
   B --> G["Generator treści (Gemini lub fallback)"]
-  G --> H["Facebook Graph API /{page-id}/feed"]
-  B --> I["Tabela social_posts_history"]
+  G --> H["Replicate (opcjonalnie)"]
+  H --> I["Facebook Graph API /{page-id}/feed lub /photos"]
+  G --> I
+  B --> J["Tabela social_posts_history"]
 ```
 
 ## 2. Architektura i granice bezpieczeństwa
@@ -50,16 +73,18 @@ Kluczowe sekrety:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - opcjonalnie `GEMINI_API_KEY`
+- opcjonalnie `REPLICATE_API_TOKEN`
 
 ### Mapa sekretów (source of truth)
 
 | Sekret | Skąd go wziąć | Gdzie ustawić | Do czego służy |
 | --- | --- | --- | --- |
 | `FACEBOOK_PAGE_ID` | `id` z odpowiedzi `GET /me/accounts` | `supabase secrets set` | Identyfikacja strony publikującej |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | `access_token` z odpowiedzi `GET /me/accounts` | `supabase secrets set` | Autoryzacja `POST /{page-id}/feed` |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | `access_token` z odpowiedzi `GET /me/accounts` | `supabase secrets set` | Autoryzacja `POST /{page-id}/feed` i `POST /{page-id}/photos` |
 | `SUPABASE_URL` | Dashboard Supabase (Project URL) | `supabase secrets set` | URL API projektu używany przez klienta DB w funkcji |
 | `SUPABASE_SERVICE_ROLE_KEY` | Dashboard Supabase (API keys) | `supabase secrets set` | Pełny dostęp serwerowy do tabel (`news_cache`, `content_topics`, itd.) |
 | `GEMINI_API_KEY` | Google AI Studio / Gemini | `supabase secrets set` | Generowanie treści posta (tryb AI) |
+| `REPLICATE_API_TOKEN` | Replicate -> Account -> API tokens | `supabase secrets set` | Generowanie obrazów dla postów obrazkowych |
 
 ### Jak sekret "przechodzi" przez system
 
@@ -68,7 +93,8 @@ Kluczowe sekrety:
 3. Podczas wykonania Edge Function sekret jest dostępny jako zmienna środowiskowa.
 4. Kod używa sekretu tylko serwerowo:
 - do zapytań DB (`SUPABASE_SERVICE_ROLE_KEY`),
-- do wywołania Facebook Graph API (`FACEBOOK_PAGE_ACCESS_TOKEN`).
+- do wywołania Facebook Graph API (`FACEBOOK_PAGE_ACCESS_TOKEN`),
+- do wywołania Replicate (`REPLICATE_API_TOKEN`) w trybie obrazkowym.
 5. Sekret nie jest wysyłany do frontendu ani zapisywany w bazie.
 
 ### Dlaczego `verify_jwt = true`
@@ -83,6 +109,7 @@ Wywołuj ją tylko backend-backend (cron, CI, serwer).
 - Facebook Page, do której masz uprawnienia administracyjne.
 - Meta Developer App (dla tokenów).
 - (Opcjonalnie) klucz Gemini API.
+- (Opcjonalnie) konto Replicate do postów obrazkowych.
 
 ## 4. Facebook: dokładne pozyskanie danych (tokeny i sekrety)
 
@@ -175,11 +202,13 @@ supabase/
   .env.local.example
   migrations/
     202602200001_facebook_autopost_schema.sql
+    202602200002_social_posts_history_image_fields.sql
   functions/
     import_map.json
     _shared/
       content-generator.ts
       facebook.ts
+      image-generator.ts
       news-fetcher.ts
       social-news-selection.ts
       supabase.ts
@@ -222,11 +251,15 @@ Opcjonalnie:
 
 ```bash
 supabase secrets set GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>
+supabase secrets set REPLICATE_API_TOKEN=<YOUR_REPLICATE_API_TOKEN>
 supabase secrets set FB_GRAPH_API_VERSION=v24.0
 supabase secrets set ORGANIZATION_NAME="Twoja organizacja"
 supabase secrets set ORGANIZATION_CONTEXT="Pomagamy NGO wdrażać technologie"
 supabase secrets set POST_CALL_TO_ACTION="Obserwuj nas po więcej aktualności"
 supabase secrets set DEFAULT_POST_LANGUAGE="Polish"
+supabase secrets set IMAGE_POST_EVERY_NTH=2
+supabase secrets set DEFAULT_POST_MODE=auto
+supabase secrets set IMAGE_APPEND_LINK_TO_CAPTION=true
 ```
 
 ### 6.4. Deploy funkcji
@@ -255,6 +288,24 @@ curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-p
   -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
   -H "Content-Type: application/json" \
   -d '{}'
+```
+
+### Wymuszenie trybu obrazkowego
+
+```bash
+curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-posts" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"post_mode":"image"}'
+```
+
+### Wymuszenie trybu linkowego
+
+```bash
+curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-posts" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"post_mode":"link"}'
 ```
 
 ### Szybkie SQL do obserwacji
@@ -360,6 +411,15 @@ curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-p
   -d '{"topic_key":"grants","dry_run":true,"skip_fetch":true}'
 ```
 
+Tryb obrazkowy dla konkretnego tematu:
+
+```bash
+curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-posts" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"topic_key":"grants","post_mode":"image"}'
+```
+
 ## 10. Troubleshooting
 
 ### "FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN are required"
@@ -376,6 +436,15 @@ Najczęściej:
 - brak dostępu konta do strony,
 - strona niepowiązana poprawnie z aplikacją/biznesem.
 
+### "REPLICATE_API_TOKEN missing" lub brak obrazka mimo `post_mode=image`
+
+Najczęściej:
+- brak `REPLICATE_API_TOKEN` w secrets,
+- błąd po stronie modelu Replicate,
+- limit/timeout na generacji obrazu.
+
+Funkcja ma fallback: jeśli obraz się nie wygeneruje, publikuje post linkowy.
+
 ### Brak postów mimo działania funkcji
 
 - sprawdź `rss_sources.is_active`,
@@ -387,7 +456,7 @@ Najczęściej:
 1. Co tydzień: kontrola `social_posts_history`.
 2. Co miesiąc: test manualny live run.
 3. Co 1-2 miesiące: weryfikacja ważności tokenu Facebook.
-4. Po każdym incydencie: rotacja `FACEBOOK_PAGE_ACCESS_TOKEN` i `SUPABASE_SERVICE_ROLE_KEY`.
+4. Po każdym incydencie: rotacja `FACEBOOK_PAGE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` i (jeśli używany) `REPLICATE_API_TOKEN`.
 
 ## 12. Bezpieczeństwo
 
