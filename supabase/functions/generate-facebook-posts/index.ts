@@ -13,7 +13,6 @@ import {
   getBestUnusedNewsForTopic,
   markNewsAsUsed,
 } from "../_shared/news-fetcher.ts";
-import { ensureAndPickTodaySpecialDayNews } from "../_shared/special-days.ts";
 import { supabaseAdmin } from "../_shared/supabase.ts";
 import type { ContentTopic, NewsItem, PostMode } from "../_shared/types.ts";
 
@@ -25,7 +24,6 @@ const corsHeaders = {
 interface GenerateRequestBody {
   dry_run?: boolean;
   skip_fetch?: boolean;
-  skip_special_days?: boolean;
   topic_key?: string;
   consume_news?: boolean;
   post_mode?: PostMode;
@@ -33,9 +31,6 @@ interface GenerateRequestBody {
 
 interface RunSummary {
   fetchedNewsCount: number;
-  specialDaysStoredCount: number;
-  specialDayPost: boolean;
-  specialDayName?: string;
   topicKey: string;
   topicName: string;
   newsTitle: string;
@@ -86,14 +81,6 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
-function isHttpUrl(value: string | null | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-
-  return /^https?:\/\//i.test(value.trim());
-}
-
 function shouldAppendLinkToImageCaption(): boolean {
   const envValue = (Deno.env.get("IMAGE_APPEND_LINK_TO_CAPTION") || "true").toLowerCase();
   return envValue !== "false";
@@ -115,56 +102,26 @@ async function getPostedCount(): Promise<number> {
 
 async function pickTopicAndNews(
   topicKey?: string,
-  specialDayNews?: NewsItem | null,
-): Promise<{ topic: ContentTopic; news: NewsItem; specialDayPost: boolean } | null> {
+): Promise<{ topic: ContentTopic; news: NewsItem } | null> {
   if (topicKey) {
     const topic = await getActiveTopicByKey(topicKey);
     if (!topic) {
       throw new Error(`Active topic not found: ${topicKey}`);
     }
 
-    const news = topic.topic_key === "special_days"
-      ? specialDayNews
-      : await getBestUnusedNewsForTopic(topic.topic_key);
+    const news = await getBestUnusedNewsForTopic(topic.topic_key);
     if (!news) {
       return null;
     }
 
-    return {
-      topic,
-      news,
-      specialDayPost: Boolean(specialDayNews && news.id === specialDayNews.id),
-    };
-  }
-
-  if (specialDayNews) {
-    const specialDaysTopic =
-      await getActiveTopicByKey("special_days") ||
-      await getActiveTopicByKey("culture");
-
-    if (specialDaysTopic) {
-      return {
-        topic: specialDaysTopic,
-        news: specialDayNews,
-        specialDayPost: true,
-      };
-    }
-
-    const fallbackRotation = await getContentTopicRotation(1);
-    if (fallbackRotation.length > 0) {
-      return {
-        topic: fallbackRotation[0],
-        news: specialDayNews,
-        specialDayPost: true,
-      };
-    }
+    return { topic, news };
   }
 
   const rotation = await getContentTopicRotation(10);
   for (const topic of rotation) {
     const news = await getBestUnusedNewsForTopic(topic.topic_key);
     if (news) {
-      return { topic, news, specialDayPost: false };
+      return { topic, news };
     }
   }
 
@@ -184,7 +141,6 @@ serve(async (req: Request) => {
     const body = (await req.json().catch(() => ({}))) as GenerateRequestBody;
     const dryRun = Boolean(body.dry_run);
     const shouldFetch = !body.skip_fetch;
-    const shouldCheckSpecialDays = !body.skip_special_days;
     const consumeNews = body.consume_news ?? !dryRun;
     const requestedPostMode = parsePostMode(body.post_mode);
 
@@ -213,29 +169,17 @@ serve(async (req: Request) => {
       fetchedNewsCount = await fetchAndStoreNews();
     }
 
-    let specialDaysStoredCount = 0;
-    let specialDayName: string | undefined;
-    let specialDayNews: NewsItem | null = null;
-
-    if (shouldCheckSpecialDays) {
-      const specialDaysResult = await ensureAndPickTodaySpecialDayNews();
-      specialDaysStoredCount = specialDaysResult.storedCount;
-      specialDayNews = specialDaysResult.selectedNews;
-      specialDayName = specialDaysResult.selectedDayName;
-    }
-
-    const selected = await pickTopicAndNews(body.topic_key, specialDayNews);
+    const selected = await pickTopicAndNews(body.topic_key);
     if (!selected) {
       return jsonResponse({
         success: true,
         skipped: true,
         reason: "No unused news available for active topics",
         fetchedNewsCount,
-        specialDaysStoredCount,
       });
     }
 
-    const { topic, news, specialDayPost } = selected;
+    const { topic, news } = selected;
     const content = await generateFacebookContent(news, topic);
 
     const imagePrompt = shouldGenerateImage ? generateImagePrompt(news, topic) : null;
@@ -243,9 +187,8 @@ serve(async (req: Request) => {
       ? await generateImage({ imagePrompt })
       : null;
 
-    const canAttachNewsLink = isHttpUrl(news.url);
     const finalPostMode: "link" | "image" = imageUrl ? "image" : "link";
-    const contentForImagePost = shouldAppendLinkToImageCaption() && canAttachNewsLink
+    const contentForImagePost = shouldAppendLinkToImageCaption()
       ? `${content}\n\n${news.url}`
       : content;
     const postContent = finalPostMode === "image" ? contentForImagePost : content;
@@ -272,9 +215,6 @@ serve(async (req: Request) => {
 
     let summary: RunSummary = {
       fetchedNewsCount,
-      specialDaysStoredCount,
-      specialDayPost,
-      specialDayName: specialDayPost ? specialDayName : undefined,
       topicKey: topic.topic_key,
       topicName: topic.topic_name,
       newsTitle: news.title,
@@ -315,7 +255,7 @@ serve(async (req: Request) => {
               pageId: pageId!,
               accessToken: accessToken!,
               message: content,
-              link: canAttachNewsLink ? news.url : undefined,
+              link: news.url,
             },
       );
 

@@ -52,18 +52,6 @@ export interface RssSource {
   created_at: string;
 }
 
-export interface SpecialDay {
-  id: string;
-  day_name: string;
-  day_description: string | null;
-  month: number;
-  day: number;
-  category: NewsCategory;
-  priority: number;
-  is_active: boolean;
-  created_at: string;
-}
-
 export interface RSSFeedItem {
   title: string;
   description?: string;
