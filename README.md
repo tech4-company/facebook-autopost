@@ -276,6 +276,7 @@ Opcjonalnie:
 ```bash
 supabase secrets set GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>
 supabase secrets set REPLICATE_API_TOKEN=<YOUR_REPLICATE_API_TOKEN>
+supabase secrets set REPLICATE_MODEL=google/nano-banana-pro
 supabase secrets set FB_GRAPH_API_VERSION=v24.0
 supabase secrets set ORGANIZATION_NAME="Twoja organizacja"
 supabase secrets set ORGANIZATION_CONTEXT="Pomagamy NGO wdrażać technologie"
@@ -284,7 +285,22 @@ supabase secrets set DEFAULT_POST_LANGUAGE="Polish"
 supabase secrets set IMAGE_POST_EVERY_NTH=2
 supabase secrets set DEFAULT_POST_MODE=auto
 supabase secrets set IMAGE_APPEND_LINK_TO_CAPTION=true
+supabase secrets set IMAGE_STYLE_REFERENCE_URL=<PUBLIC_URL_STYLU>
+supabase secrets set IMAGE_BRAND_LOGO_URL=<PUBLIC_URL_LOGOTYPU>
+supabase secrets set IMAGE_ASPECT_RATIO=1:1
+supabase secrets set IMAGE_OUTPUT_FORMAT=jpg
 ```
+
+### 6.3.1. Replicate: obraz referencyjny i logotyp
+
+Jeśli chcesz, żeby kolejne grafiki trzymały jeden styl (i branding), ustaw:
+- `IMAGE_STYLE_REFERENCE_URL` — publiczny URL do przykładowej grafiki referencyjnej (styl, klimat, kolorystyka).
+- `IMAGE_BRAND_LOGO_URL` — publiczny URL do logotypu (najlepiej PNG z transparentnym tłem).
+
+Ważne:
+- URL-e muszą być publicznie dostępne z internetu (model pobiera je po URL).
+- Najlepiej używać stabilnych, własnych linków (np. publiczny bucket w Supabase Storage).
+- Przy `DEFAULT_POST_MODE=auto` obraz i tak może przełączyć się na post linkowy, jeśli generacja się nie powiedzie (fallback).
 
 ### 6.4. Deploy funkcji
 
