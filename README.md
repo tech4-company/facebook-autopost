@@ -261,6 +261,7 @@ To utworzy tabele:
 - `news_cache`
 - `content_topics`
 - `social_posts_history`
+- `special_days`
 
 ### 6.3. Ustaw sekrety runtime
 
@@ -284,6 +285,7 @@ supabase secrets set DEFAULT_POST_LANGUAGE="Polish"
 supabase secrets set IMAGE_POST_EVERY_NTH=2
 supabase secrets set DEFAULT_POST_MODE=auto
 supabase secrets set IMAGE_APPEND_LINK_TO_CAPTION=true
+supabase secrets set SPECIAL_DAYS_TIMEZONE="Europe/Warsaw"
 ```
 
 ### 6.4. Deploy funkcji
@@ -443,9 +445,9 @@ insert into public.rss_sources (source_name, feed_url, category, priority)
 select v.source_name, v.feed_url, v.category, v.priority
 from (
   values
-    ('NIW', 'https://niw.gov.pl/feed/', 'ngo_sector', 10),
-    ('PortalSamorzadowy - Spoleczenstwo', 'https://www.portalsamorzadowy.pl/rss/spoleczenstwo.xml', 'public_policy', 20),
-    ('RynekZdrowia - Polityka Zdrowotna', 'https://www.rynekzdrowia.pl/Kanal/polityka_zdrowotna.xml', 'public_health', 30)
+    ('NIW', 'https://niw.gov.pl/feed/', 'grants', 10),
+    ('PortalSamorzadowy - Spoleczenstwo', 'https://www.portalsamorzadowy.pl/rss/spoleczenstwo.xml', 'ngo', 20),
+    ('RynekZdrowia - Polityka Zdrowotna', 'https://www.rynekzdrowia.pl/Kanal/polityka_zdrowotna.xml', 'ngo', 30)
 ) as v(source_name, feed_url, category, priority)
 where not exists (
   select 1
@@ -483,6 +485,32 @@ curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-p
   -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"topic_key":"grants","post_mode":"image"}'
+```
+
+### 9.4. Dni specjalne (np. Światowy Dzień Pizzy)
+
+Funkcja automatycznie sprawdza tabelę `special_days` i w dniu dopasowania dodaje wpis do `news_cache` (źródło: `Special Days Calendar`), a potem może go opublikować jak standardowy post.
+
+```sql
+select id, day_name, month, day, category, priority, is_active
+from public.special_days
+order by month, day, priority;
+
+insert into public.special_days (day_name, day_description, month, day, category, priority, is_active)
+values
+  ('Światowy Dzień Pizzy', 'Dzień lekkich treści angażujących społeczność lokalną.', 2, 9, 'culture', 10, true),
+  ('Międzynarodowy Dzień Wolontariusza', 'Podziękuj wolontariuszom i pokaż jak dołączyć do działań NGO.', 12, 5, 'ngo', 10, true),
+  ('Światowy Dzień Ziemi', 'Treści edukacyjne o działaniach lokalnych i odpowiedzialności społecznej.', 4, 22, 'ngo', 20, true)
+on conflict do nothing;
+```
+
+Jeśli chcesz pominąć dni specjalne w pojedynczym uruchomieniu:
+
+```bash
+curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-posts" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"skip_special_days":true}'
 ```
 
 ## 10. Lista kontrolna przed pierwszym uruchomieniem
