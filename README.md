@@ -31,6 +31,7 @@ Cały pipeline działa serwerowo. Żadne tokeny ani klucze API nie trafiają do 
 3. Sklonuj to repo          →  supabase link --project-ref <PROJECT_REF>
 4. Wgraj schemat bazy       →  supabase db push
 5. Ustaw sekrety            →  supabase secrets set ...  (sekcja 6.3)
+   (opcjonalnie branding obrazu: IMAGE_STYLE_REFERENCE_URL / IMAGE_BRAND_LOGO_URL — sekcje 6.3.1 i 6.3.2)
 6. Wdróż funkcję            →  supabase functions deploy generate-facebook-posts
 7. Przetestuj               →  curl ... -d '{"dry_run":true}'  (sekcja 7)
 8. Ustaw harmonogram        →  pg_cron  (sekcja 8)
@@ -301,6 +302,40 @@ Ważne:
 - URL-e muszą być publicznie dostępne z internetu (model pobiera je po URL).
 - Najlepiej używać stabilnych, własnych linków (np. publiczny bucket w Supabase Storage).
 - Przy `DEFAULT_POST_MODE=auto` obraz i tak może przełączyć się na post linkowy, jeśli generacja się nie powiedzie (fallback).
+
+### 6.3.2. Gotowy przykład: Supabase Storage -> public URL -> Replicate
+
+1. W dashboardzie Supabase wejdź w `Storage` i utwórz bucket np. `brand-assets` z opcją `Public bucket`.
+2. Wgraj plik `style/reference.jpg` (grafika referencyjna stylu).
+3. Wgraj plik `logo/logo.png` (logotyp).
+4. Publiczny URL buduj według wzoru: `https://<PROJECT_REF>.supabase.co/storage/v1/object/public/<BUCKET>/<SCIEZKA_PLIKU>`.
+5. Dla powyższego przykładu URL stylu to: `https://<PROJECT_REF>.supabase.co/storage/v1/object/public/brand-assets/style/reference.jpg`.
+6. Dla powyższego przykładu URL logotypu to: `https://<PROJECT_REF>.supabase.co/storage/v1/object/public/brand-assets/logo/logo.png`.
+7. Ustaw sekrety:
+
+```bash
+supabase secrets set IMAGE_STYLE_REFERENCE_URL=https://<PROJECT_REF>.supabase.co/storage/v1/object/public/brand-assets/style/reference.jpg
+supabase secrets set IMAGE_BRAND_LOGO_URL=https://<PROJECT_REF>.supabase.co/storage/v1/object/public/brand-assets/logo/logo.png
+supabase secrets set DEFAULT_POST_MODE=image
+```
+
+8. Zrób test obrazka na stronie testowej:
+
+```bash
+curl -X POST "https://<PROJECT_REF>.supabase.co/functions/v1/generate-facebook-posts" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"post_mode":"image"}'
+```
+
+9. Sprawdź wynik:
+
+```sql
+select id, status, has_generated_image, image_url, created_at
+from public.social_posts_history
+order by created_at desc
+limit 5;
+```
 
 ### 6.4. Deploy funkcji
 
