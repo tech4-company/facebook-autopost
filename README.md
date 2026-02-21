@@ -431,11 +431,27 @@ select cron.schedule(
 
 ### 9.1. Źródła RSS
 
+Poniżej 3 gotowe, polskie źródła dla NGO (sprawdzone: `2026-02-21`, `HTTP 200`, poprawny XML RSS, aktywne wpisy):
+- `NIW (granty, konkursy, sektor obywatelski)` → `https://niw.gov.pl/feed/`
+- `PortalSamorzadowy: Społeczeństwo (sprawy lokalne i publiczne)` → `https://www.portalsamorzadowy.pl/rss/spoleczenstwo.xml`
+- `RynekZdrowia: Polityka zdrowotna (tematy zdrowia publicznego)` → `https://www.rynekzdrowia.pl/Kanal/polityka_zdrowotna.xml`
+
 ```sql
 select * from public.rss_sources order by priority;
 
 insert into public.rss_sources (source_name, feed_url, category, priority)
-values ('Portal NGO', 'https://example.org/rss.xml', 'ngo', 50);
+select v.source_name, v.feed_url, v.category, v.priority
+from (
+  values
+    ('NIW', 'https://niw.gov.pl/feed/', 'ngo_sector', 10),
+    ('PortalSamorzadowy - Spoleczenstwo', 'https://www.portalsamorzadowy.pl/rss/spoleczenstwo.xml', 'public_policy', 20),
+    ('RynekZdrowia - Polityka Zdrowotna', 'https://www.rynekzdrowia.pl/Kanal/polityka_zdrowotna.xml', 'public_health', 30)
+) as v(source_name, feed_url, category, priority)
+where not exists (
+  select 1
+  from public.rss_sources rs
+  where rs.feed_url = v.feed_url
+);
 ```
 
 ### 9.2. Tematy i szablony
