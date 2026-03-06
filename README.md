@@ -1,5 +1,15 @@
 ![Tech4Good](./assets/tech4good-banner.png)
 
+<iframe
+  width="100%"
+  height="400"
+  src="https://www.youtube.com/embed/iQrdYhxwNww"
+  title="Koniec z ręcznym postowaniem! Agenci AI w Social Media dla NGO."
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  allowfullscreen
+></iframe>
+
 ---
 
 # facebook-autopost-supabase
@@ -337,6 +347,13 @@ order by created_at desc
 limit 5;
 ```
 
+10. (Zalecane) sprawdź czy URL-e referencyjne są publiczne i dostępne (`HTTP 200`):
+
+```bash
+curl -I https://<PROJECT_REF>.supabase.co/storage/v1/object/public/brand-assets/style/reference.jpg
+curl -I https://<PROJECT_REF>.supabase.co/storage/v1/object/public/brand-assets/logo/logo.png
+```
+
 ### 6.4. Deploy funkcji
 
 ```bash
@@ -487,6 +504,8 @@ Poniżej 4 gotowe źródła dla NGO (sprawdzone: `2026-02-21`, `HTTP 200`, popra
 - `PortalSamorzadowy: Społeczeństwo (sprawy lokalne i publiczne)` → `https://www.portalsamorzadowy.pl/rss/spoleczenstwo.xml`
 - `RynekZdrowia: Polityka zdrowotna (tematy zdrowia publicznego)` → `https://www.rynekzdrowia.pl/Kanal/polityka_zdrowotna.xml`
 - `Days Of The Year (dni nietypowe i okazjonalne)` → `https://www.daysoftheyear.com/feed/`
+
+Uwaga: `Days Of The Year` to feed anglojęzyczny. Jeśli publikujesz po polsku, najlepiej używać trybu z `GEMINI_API_KEY`, żeby treść posta była naturalnie przepisana na język polski.
 
 ```sql
 select * from public.rss_sources order by priority;
