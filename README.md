@@ -1,14 +1,6 @@
 ![Tech4Good](./assets/tech4good-banner.png)
 
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/iQrdYhxwNww"
-  title="Koniec z ręcznym postowaniem! Agenci AI w Social Media dla NGO."
-  frameborder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  allowfullscreen
-></iframe>
+[![Koniec z ręcznym postowaniem! Agenci AI w Social Media dla NGO.](https://img.youtube.com/vi/iQrdYhxwNww/maxresdefault.jpg)](https://youtu.be/iQrdYhxwNww)
 
 ---
 
