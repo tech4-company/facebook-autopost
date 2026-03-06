@@ -4,9 +4,9 @@
 
 ---
 
-# facebook-autopost-supabase
+# AI agent do social mediów dla NGO
 
-Narzędzie open-source dla NGO i organizacji społecznych, które chcą automatycznie utrzymywać aktywność na Facebooku — bez potrzeby zatrudniania osoby do social mediów i bez ręcznego przeglądania newsów każdego dnia.
+Agent AI, który sam wyszukuje ważne newsy, pisze posty i publikuje je na Twojej stronie na Facebooku — tak, żeby fanpage żył nawet wtedy, gdy nikt nie ma czasu na ręczne ogarnianie social mediów. Repozytorium techniczne: `facebook-autopost-supabase`.
 
 ## Jak to działa
 
